@@ -1,0 +1,45 @@
+<html>
+<head>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script src="jade.js"></script>
+<link type="text/css" href="jade.css" rel="Stylesheet" />
+<style>
+html, body {
+	margin:0;
+	padding: 0;
+}
+#wrapper {
+
+	overflow: hidden;
+	padding-bottom: 25px;
+	box-sizing: border-box;
+	width: 100vw;
+	height: 100vh;
+}
+</style>
+<script>
+$(function() {
+	$('.jade').each(function() {
+		var jade = this.jade
+		jade.jade.save_to_server = function(d, h) {
+			console.log(d)
+			$.ajax({type: 'POST',
+				url: '/beta.json',
+				data : JSON.stringify(jade.get_state()),
+    			contentType : 'application/json'
+			}).then(h);
+		}
+	})
+})
+</script>
+</head>
+
+<body>
+	<div id="wrapper">
+		<div class="jade" >
+
+		</div>
+	</div>
+</body>
+<script src="fsbridge.js"></script>
+</html>
