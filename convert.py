@@ -8,10 +8,11 @@ import json
 from pathlib import Path
 import shutil
 import os
+from collections import defaultdict
 
 def jsonf_to_fs(inpath, outpath, overwrite=False):
 	with inpath.open() as f:
-		indata = f.read()
+		indata = json.load(f)
 
 	return json_to_fs(indata, outpath)
 
@@ -26,9 +27,29 @@ def json_to_fs(data, outpath, overwrite=False):
 				f.write('\n')
 		f.write(indent + ']')
 
+	expanded_mems = defaultdict(int)
 
 	def custom_dump(v, f):
 		def inner_dump(item, indent):
+			import copy
+			if item[0] == 'memory' and 'contents' in item[2]:
+				item = copy.deepcopy(item)
+				contents = item[2]['contents']
+
+				new_path = Path(f.name).parent
+
+				if 'name' in item[2]:
+					name = item[2]['name']
+				else:
+					expanded_mems[new_path] += 1
+					name = 'unnamed{}'.format(expanded_mems[new_path])
+
+				new_path = new_path / '{}.memory'.format(name)
+
+				with new_path.open('w') as f2:
+					f2.write(contents)
+
+				item[2]['contents'] = {"$ref": '{}.memory'.format(name)}
 			return indent + json.dumps(item, sort_keys=True)
 
 		if type(v) == list:
@@ -64,9 +85,10 @@ def json_to_fs(data, outpath, overwrite=False):
 		subdir.mkdir(parents=True, exist_ok=True)
 
 		for k, v in state.items():
-			if k == 'test' and len(v) == 1 and len(v[0]) == 2 and v[0][0] == 'test' and v[0][1]:
-				with (subdir / '{}.txt'.format(k)).open('w') as f:
-					f.write(v[0][1])
+			if k == 'test' and len(v) == 1 and len(v[0]) == 2 and v[0][0] == 'test':
+				if v[0][1]:
+					with (subdir / '{}.txt'.format(k)).open('w') as f:
+						f.write(v[0][1])
 			else:
 				with (subdir / '{}.json'.format(k)).open('w') as f:
 					custom_dump(v, f)
@@ -90,11 +112,22 @@ def fs_to_json(in_dir):
 		if files:
 			curr = {}
 			for fname in files:
+				def fix(d):
+					if isinstance(d, dict) and d.keys() == {'$ref'}:
+						with (fname.parent / d['$ref']).open() as f:
+							return f.read()
+					elif isinstance(d, dict):
+						return {k: fix(v) for k, v in d.items()}
+					elif isinstance(d, list):
+						return [fix(v) for v in d]
+					else:
+						return d
+
 				with fname.open() as f:
 					if fname.name == 'test.txt':
 						curr[fname.stem] = [['test', f.read()]]
 					else:
-						curr[fname.stem] = json.load(f)
+						curr[fname.stem] = fix(json.load(f))
 
 			data['state']['/'+str(d.relative_to(in_dir)).replace('\\', '/')] = curr
 
