@@ -3,6 +3,7 @@ import bottle
 import sys
 from pathlib import Path
 import os
+import webbrowser
 
 if not sys.argv[1]:
 	raise SystemExit("Requires folder to edit as first argument")
@@ -26,8 +27,16 @@ def index():
 	data = convert.fs_to_json(edit_folder)
 	return template('editor', data=data)
 
+@get('/setup')
+def setup():
+	return template('setup')
+
+
 @post('/json')
 def upload():
 	convert.json_to_fs(request.json, edit_folder)
 
-run(host='localhost', port=8080)
+host = 'localhost'
+port = 6004
+webbrowser.open('http://{}:{}'.format(host, port))
+run(host=host, port=port)
